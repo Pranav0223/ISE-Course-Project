@@ -1,5 +1,5 @@
 require("dotenv").config();
-const userModel = require("../models/userModel.js");
+const userModel = require("../models/UserModel.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;

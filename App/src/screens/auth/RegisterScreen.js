@@ -9,6 +9,32 @@ import { useAuth } from '../../context/AuthContext';
 import { login as loginService } from '../../services/authService';
 import COLORS from '../../constants/colors';
 
+// ── Field component defined OUTSIDE RegisterScreen ────────────────────────────
+// This is critical — if defined inside, it gets recreated on every render
+// which causes TextInput to lose focus after every single keystroke.
+const Field = ({ label, value, onChangeText, placeholder, keyboardType,
+                 secureTextEntry, error, rightElement }) => (
+  <View style={styles.fieldGroup}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
+      <TextInput
+        style={styles.input}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.textLight}
+        keyboardType={keyboardType || 'default'}
+        autoCapitalize="none"
+        autoCorrect={false}
+        secureTextEntry={secureTextEntry || false}
+        value={value}
+        onChangeText={onChangeText}
+      />
+      {rightElement || null}
+    </View>
+    {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+  </View>
+);
+
+// ── RegisterScreen ────────────────────────────────────────────────────────────
 export default function RegisterScreen({ navigation }) {
   const { login } = useAuth();
 
@@ -23,7 +49,7 @@ export default function RegisterScreen({ navigation }) {
   const [apiError,    setApiError]    = useState('');
   const [errors,      setErrors]      = useState({});
 
-  // ── Validation ─────────────────────────────────────────────────
+  // ── Validation ──────────────────────────────────────────────────
   const validate = () => {
     const newErrors = {};
 
@@ -52,6 +78,10 @@ export default function RegisterScreen({ navigation }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  // ── Clear a single field error while typing ─────────────────────
+  const clearError = (key) =>
+    setErrors(prev => ({ ...prev, [key]: '' }));
+
   // ── Submit ──────────────────────────────────────────────────────
   const handleRegister = async () => {
     if (!validate()) return;
@@ -59,12 +89,10 @@ export default function RegisterScreen({ navigation }) {
     setIsLoading(true);
     setApiError('');
     try {
-      // Register the user
       await registerService(
         name.trim(), email.trim().toLowerCase(),
         password, role, department.trim()
       );
-      // Auto-login after registration
       const { token, user } = await loginService(
         email.trim().toLowerCase(), password
       );
@@ -76,38 +104,6 @@ export default function RegisterScreen({ navigation }) {
       setIsLoading(false);
     }
   };
-
-  // ── Reusable field component ────────────────────────────────────
-  const Field = ({ label, value, onChangeText, placeholder, keyboardType,
-                   secureTextEntry, errorKey, rightElement }) => (
-    <View style={styles.fieldGroup}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[
-        styles.inputWrapper,
-        errors[errorKey] ? styles.inputError : null
-      ]}>
-        <TextInput
-          style={styles.input}
-          placeholder={placeholder}
-          placeholderTextColor={COLORS.textLight}
-          keyboardType={keyboardType || 'default'}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry={secureTextEntry || false}
-          value={value}
-          onChangeText={(t) => {
-            onChangeText(t);
-            setErrors(prev => ({ ...prev, [errorKey]: '' }));
-            setApiError('');
-          }}
-        />
-        {rightElement || null}
-      </View>
-      {errors[errorKey]
-        ? <Text style={styles.fieldError}>{errors[errorKey]}</Text>
-        : null}
-    </View>
-  );
 
   // ── UI ──────────────────────────────────────────────────────────
   return (
@@ -143,28 +139,28 @@ export default function RegisterScreen({ navigation }) {
           <Field
             label="Full Name"
             value={name}
-            onChangeText={setName}
+            onChangeText={(t) => { setName(t); clearError('name'); setApiError(''); }}
             placeholder="e.g. Rahul Sharma"
-            errorKey="name"
+            error={errors.name}
           />
 
           {/* Email */}
           <Field
             label="Email Address"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(t) => { setEmail(t); clearError('email'); setApiError(''); }}
             placeholder="you@gov.in"
             keyboardType="email-address"
-            errorKey="email"
+            error={errors.email}
           />
 
           {/* Department */}
           <Field
             label="Department / Ministry"
             value={department}
-            onChangeText={setDepartment}
+            onChangeText={(t) => { setDepartment(t); clearError('department'); setApiError(''); }}
             placeholder="e.g. Ministry of Agriculture"
-            errorKey="department"
+            error={errors.department}
           />
 
           {/* Role selector */}
@@ -179,7 +175,7 @@ export default function RegisterScreen({ navigation }) {
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.roleText, role === r && styles.roleTextActive]}>
-                    {r === 'viewer' ? 'Viewer' : 'Policy Officer'}
+                    {r === 'viewer' ? 'Viewer' : 'Policy Maker'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -195,10 +191,10 @@ export default function RegisterScreen({ navigation }) {
           <Field
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(t) => { setPassword(t); clearError('password'); setApiError(''); }}
             placeholder="Minimum 6 characters"
             secureTextEntry={!showPass}
-            errorKey="password"
+            error={errors.password}
             rightElement={
               <TouchableOpacity
                 onPress={() => setShowPass(!showPass)}
@@ -214,10 +210,10 @@ export default function RegisterScreen({ navigation }) {
           <Field
             label="Confirm Password"
             value={confirmPass}
-            onChangeText={setConfirmPass}
+            onChangeText={(t) => { setConfirmPass(t); clearError('confirmPass'); setApiError(''); }}
             placeholder="Re-enter your password"
             secureTextEntry={!showPass}
-            errorKey="confirmPass"
+            error={errors.confirmPass}
           />
 
           {/* Register Button */}
@@ -325,12 +321,12 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25, shadowRadius: 6, elevation: 4,
   },
-  buttonDisabled:      { opacity: 0.6 },
-  registerButtonText:  { color: COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  buttonDisabled:     { opacity: 0.6 },
+  registerButtonText: { color: COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 
   // Footer
-  footer:      { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
-  footerText:  { fontSize: 14, color: COLORS.textMid },
-  footerLink:  { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
-  disclaimer:  { textAlign: 'center', fontSize: 11, color: COLORS.textLight, lineHeight: 17 },
+  footer:     { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
+  footerText: { fontSize: 14, color: COLORS.textMid },
+  footerLink: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
+  disclaimer: { textAlign: 'center', fontSize: 11, color: COLORS.textLight, lineHeight: 17 },
 });
