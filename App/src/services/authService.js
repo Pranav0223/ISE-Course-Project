@@ -1,27 +1,55 @@
+/**
+ * authService.js
+ * ──────────────
+ * Matched to backend endpoints in UserRoutes.js:
+ *
+ *   POST /signup   → { name, email, password, role, department }
+ *   POST /login    → { email, password }  returns { message, token }
+ *   POST /getuser  → { token }            returns { message, data: user }
+ *
+ * NOTE: Backend role enum is "viewer" | "policy-maker" | "admin"
+ */
+
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ── POST /signup ──────────────────────────────────────────────────────────────
+export const register = async (name, email, password, role, department) => {
+  const { data } = await api.post('/signup', {
+    name,
+    email,
+    password,
+    role,        // "viewer" or "policy-maker"
+    department,
+  });
+  return data;   // { message, data: createdUser }
+};
+
+// ── POST /login ───────────────────────────────────────────────────────────────
+// Backend returns { message, token } — no user object
+// We then call /getuser to fetch the full user profile
 export const login = async (email, password) => {
-  const response = await api.post('/auth/login', { email, password });
-  const { token, user } = response.data;
+  const { data } = await api.post('/login', { email, password });
+
+  const token = data.token;
+
+  // Persist token to AsyncStorage immediately
   await AsyncStorage.setItem('token', token);
-  await AsyncStorage.setItem('user', JSON.stringify(user));
+
+  // Fetch full user profile using the token
+  const userResponse = await api.post('/getuser', { token });
+  const user = userResponse.data.data;  // { _id, name, email, role, department }
+
   return { token, user };
 };
 
-export const register = async (name, email, password, role, department) => {
-  const response = await api.post('/auth/register', {
-    name, email, password, role, department
-  });
-  return response.data;
+// ── POST /getuser ─────────────────────────────────────────────────────────────
+export const getUser = async (token) => {
+  const { data } = await api.post('/getuser', { token });
+  return data.data;   // { _id, name, email, role, department }
 };
 
+// ── Clear token on logout ─────────────────────────────────────────────────────
 export const logout = async () => {
   await AsyncStorage.removeItem('token');
-  await AsyncStorage.removeItem('user');
-};
-
-export const getSavedUser = async () => {
-  const user = await AsyncStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
 };

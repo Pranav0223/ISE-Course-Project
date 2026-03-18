@@ -1,49 +1,58 @@
+/**
+ * AuthContext.js
+ * ──────────────
+ * - On app start: reads saved token from AsyncStorage → calls /getuser → restores session
+ * - login(user, token): saves token, sets user in state
+ * - logout(): clears token, clears user
+ */
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logout as logoutService } from '../services/authService';
+import { getUser } from '../services/authService';
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);
-  const [token, setToken]     = useState(null);
-  const [loading, setLoading] = useState(true); // checking saved token on startup
+export function AuthProvider({ children }) {
+  const [user,    setUser]    = useState(null);
+  const [loading, setLoading] = useState(true);   // true while checking AsyncStorage
 
-  // On app start — check if token exists in storage
+  // ── Restore session on app launch ────────────────────────────────────────
   useEffect(() => {
-    const loadStoredAuth = async () => {
+    const restoreSession = async () => {
       try {
-        const savedToken = await AsyncStorage.getItem('token');
-        const savedUser  = await AsyncStorage.getItem('user');
-        if (savedToken && savedUser) {
-          setToken(savedToken);
-          setUser(JSON.parse(savedUser));
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          const userData = await getUser(token);
+          setUser(userData);
         }
-      } catch (e) {
-        console.log('Error loading auth:', e);
+      } catch {
+        // Token expired or invalid — clear it silently
+        await AsyncStorage.removeItem('token');
       } finally {
         setLoading(false);
       }
     };
-    loadStoredAuth();
+
+    restoreSession();
   }, []);
 
-  const login = (userData, jwtToken) => {
+  // ── login — called by LoginScreen and RegisterScreen after success ────────
+  const login = (userData, token) => {
     setUser(userData);
-    setToken(jwtToken);
+    // token is already saved to AsyncStorage inside authService.login()
   };
 
+  // ── logout ────────────────────────────────────────────────────────────────
   const logout = async () => {
-    await logoutService();
+    await AsyncStorage.removeItem('token');
     setUser(null);
-    setToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuth = () => useContext(AuthContext);

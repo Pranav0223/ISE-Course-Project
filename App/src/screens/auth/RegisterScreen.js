@@ -171,7 +171,7 @@ export default function RegisterScreen({ navigation }) {
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Role</Text>
             <View style={styles.roleRow}>
-              {['viewer', 'policy_officer'].map((r) => (
+              {['viewer', 'policy-maker'].map((r) => (
                 <TouchableOpacity
                   key={r}
                   style={[styles.roleButton, role === r && styles.roleButtonActive]}
