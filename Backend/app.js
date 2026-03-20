@@ -8,7 +8,8 @@ app.use(express.json());
 const userRoutes = require("./src/routes/UserRoutes.js");
 app.use(userRoutes);
 
-
+const citizenRoutes = require("./src/routes/CitizenRoutes.js");
+app.use(citizenRoutes);
 
 
 
