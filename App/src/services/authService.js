@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── POST /signup ──────────────────────────────────────────────────────────────
 export const register = async (name, email, password, role, department) => {
-  const { data } = await api.post('/signup', {
+  const { data } = await api.post('/api/users/signup', {
     name,
     email,
     password,
@@ -29,7 +29,7 @@ export const register = async (name, email, password, role, department) => {
 // Backend returns { message, token } — no user object
 // We then call /getuser to fetch the full user profile
 export const login = async (email, password) => {
-  const { data } = await api.post('/login', { email, password });
+  const { data } = await api.post('/api/users/login', { email, password });
 
   const token = data.token;
 
@@ -37,7 +37,7 @@ export const login = async (email, password) => {
   await AsyncStorage.setItem('token', token);
 
   // Fetch full user profile using the token
-  const userResponse = await api.post('/getuser', { token });
+  const userResponse = await api.post('/api/users/getuser', { token });
   const user = userResponse.data.data;  // { _id, name, email, role, department }
 
   return { token, user };
@@ -45,7 +45,7 @@ export const login = async (email, password) => {
 
 // ── POST /getuser ─────────────────────────────────────────────────────────────
 export const getUser = async (token) => {
-  const { data } = await api.post('/getuser', { token });
+  const { data } = await api.post('/api/users/getuser', { token });
   return data.data;   // { _id, name, email, role, department }
 };
 
