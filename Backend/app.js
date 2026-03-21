@@ -6,12 +6,17 @@ const mongoose = require("mongoose");
 app.use(express.json());
 
 const userRoutes = require("./src/routes/UserRoutes.js");
-app.use(userRoutes);
+app.use('/api/users', userRoutes);
 
 const citizenRoutes = require("./src/routes/CitizenRoutes.js");
-app.use(citizenRoutes);
+app.use('/api/citizens', citizenRoutes);
 
 
+const parsePolicyRoutes = require('./src/routes/parsePolicyRoutes');
+app.use('/api/parse-policy', parsePolicyRoutes);
+
+const simulationRoutes = require('./src/routes/simulationRoutes');
+app.use('/api/simulate', simulationRoutes);
 
 
 const mongooseURI =
