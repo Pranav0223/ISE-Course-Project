@@ -126,9 +126,9 @@ const simulate = async (req, res) => {
     }));
 
     // Sort by coverage %, take top 5
-    const top_states = stateStats
+    const all_states = stateStats
       .sort((a, b) => b.coverage - a.coverage)
-      .slice(0, 5)
+      
       .map(({ state, count, state_total }) => ({ state, count, state_total }));
 
     return res.status(200).json({
@@ -141,7 +141,7 @@ const simulate = async (req, res) => {
         social_category,
         rural_urban,
         gender,
-        top_states,
+        all_states,
       },
     });
 
