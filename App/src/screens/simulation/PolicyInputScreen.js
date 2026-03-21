@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, ScrollView,
@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { parsePolicy, parsePolicyDocument } from '../../services/simulationService';
+import { useAuth } from '../../context/AuthContext';
 import COLORS from '../../constants/colors';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ const getFileIcon = (mimeType) => {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PolicyInputScreen({ navigation }) {
+  const { logout } = useAuth();
 
   // mode: 'text' | 'upload'
   const [mode,         setMode]         = useState('text');
@@ -71,7 +73,7 @@ export default function PolicyInputScreen({ navigation }) {
   // ── Tab slide animation
   const tabIndicator = useRef(new Animated.Value(0)).current;
 
-  const switchMode = (newMode) => {
+  const switchMode = useCallback((newMode) => {
     setMode(newMode);
     setApiError('');
     Animated.timing(tabIndicator, {
@@ -79,26 +81,33 @@ export default function PolicyInputScreen({ navigation }) {
       duration:        200,
       useNativeDriver: false,
     }).start();
-  };
+  }, [tabIndicator]);
 
   // ── Chip press animation
   const chipScales = useRef(EXAMPLES.map(() => new Animated.Value(1))).current;
 
-  const animateChip = (index) => {
+  const handleChipPress = useCallback((index) => {
     Animated.sequence([
       Animated.timing(chipScales[index], { toValue: 0.93, duration: 80,  useNativeDriver: true }),
       Animated.timing(chipScales[index], { toValue: 1,    duration: 120, useNativeDriver: true }),
     ]).start();
-  };
-
-  const handleChipPress = (index) => {
-    animateChip(index);
     setPolicyText(EXAMPLES[index].text);
     setApiError('');
-  };
+  }, [chipScales]);
 
-  // ── File picker ───────────────────────────────────────────────────────────
-  const handlePickFile = async () => {
+  // ── Text change handler — stable reference stops TextInput re-mounting
+  const handleTextChange = useCallback((t) => {
+    setPolicyText(t);
+    setApiError('');
+  }, []);
+
+  const handleNotesChange = useCallback((t) => {
+    setUploadNotes(t);
+    setApiError('');
+  }, []);
+
+  // ── File picker
+  const handlePickFile = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type:                 ACCEPTED_TYPES,
@@ -110,7 +119,6 @@ export default function PolicyInputScreen({ navigation }) {
 
       const file = result.assets[0];
 
-      // Extension guard
       const ext = file.name?.split('.').pop()?.toLowerCase();
       if (!ACCEPTED_EXTENSIONS.includes(ext)) {
         Alert.alert(
@@ -121,7 +129,6 @@ export default function PolicyInputScreen({ navigation }) {
         return;
       }
 
-      // Size guard
       if (file.size && file.size > MAX_FILE_MB * 1024 * 1024) {
         Alert.alert(
           'File Too Large',
@@ -136,15 +143,15 @@ export default function PolicyInputScreen({ navigation }) {
     } catch {
       setApiError('Could not open file picker. Please try again.');
     }
-  };
+  }, []);
 
-  const handleRemoveFile = () => {
+  const handleRemoveFile = useCallback(() => {
     setSelectedFile(null);
     setApiError('');
-  };
+  }, []);
 
-  // ── Submit ────────────────────────────────────────────────────────────────
-  const handleAnalyse = async () => {
+  // ── Submit
+  const handleAnalyse = useCallback(async () => {
     setIsLoading(true);
     setApiError('');
 
@@ -170,7 +177,7 @@ export default function PolicyInputScreen({ navigation }) {
         policy_text: mode === 'text'
           ? policyText.trim()
           : `[Document: ${selectedFile.name}]${uploadNotes.trim() ? '\n' + uploadNotes.trim() : ''}`,
-        parsed: result,   // { understood_as, rules[] }
+        parsed: result,
       });
 
     } catch (error) {
@@ -180,19 +187,22 @@ export default function PolicyInputScreen({ navigation }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mode, policyText, selectedFile, uploadNotes, navigation]);
 
-  // ── Derived
-  const textReady      = mode === 'text'   && policyText.trim().length >= MIN_CHARS;
-  const uploadReady    = mode === 'upload' && selectedFile !== null;
-  const isButtonActive = (textReady || uploadReady) && !isLoading;
+  // ── Derived — memoised so they don't recalculate on unrelated renders
   const charCount      = policyText.length;
   const isOverLimit    = charCount > MAX_CHARS;
 
-  const tabLeft = tabIndicator.interpolate({
+  const isButtonActive = useMemo(() => {
+    const textReady   = mode === 'text'   && policyText.trim().length >= MIN_CHARS;
+    const uploadReady = mode === 'upload' && selectedFile !== null;
+    return (textReady || uploadReady) && !isLoading;
+  }, [mode, policyText, selectedFile, isLoading]);
+
+  const tabLeft = useMemo(() => tabIndicator.interpolate({
     inputRange:  [0, 1],
     outputRange: ['2%', '51%'],
-  });
+  }), [tabIndicator]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -208,6 +218,11 @@ export default function PolicyInputScreen({ navigation }) {
 
         {/* ── Header ── */}
         <View style={styles.header}>
+          {/* Logout button — top right */}
+          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+
           <View style={styles.logoBox}>
             <Text style={styles.logoText}>PIS</Text>
           </View>
@@ -255,7 +270,7 @@ export default function PolicyInputScreen({ navigation }) {
                 multiline
                 textAlignVertical="top"
                 value={policyText}
-                onChangeText={(t) => { setPolicyText(t); setApiError(''); }}
+                onChangeText={handleTextChange}
                 maxLength={600}
                 autoCapitalize="sentences"
                 autoCorrect
@@ -355,7 +370,7 @@ export default function PolicyInputScreen({ navigation }) {
                   multiline
                   textAlignVertical="top"
                   value={uploadNotes}
-                  onChangeText={(t) => { setUploadNotes(t); setApiError(''); }}
+                  onChangeText={handleNotesChange}
                   maxLength={300}
                   autoCapitalize="sentences"
                 />
@@ -419,6 +434,18 @@ const styles = StyleSheet.create({
 
   // Header
   header:      { alignItems: 'center', marginBottom: 24 },
+  logoutButton: {
+    position:  'absolute',
+    top:       0,
+    right:     0,
+    paddingHorizontal: 12,
+    paddingVertical:   6,
+    borderRadius:      8,
+    borderWidth:       1.5,
+    borderColor:       COLORS.border,
+    backgroundColor:   COLORS.white,
+  },
+  logoutText: { fontSize: 13, color: COLORS.error, fontWeight: '600' },
   logoBox: {
     width: 64, height: 64, borderRadius: 16, backgroundColor: COLORS.primary,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,

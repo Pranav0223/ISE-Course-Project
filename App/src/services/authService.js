@@ -15,38 +15,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── POST /signup ──────────────────────────────────────────────────────────────
 export const register = async (name, email, password, role, department) => {
-  const { data } = await api.post('/signup', {
-    name,
-    email,
-    password,
-    role,        // "viewer" or "policy-maker"
-    department,
+  const { data } = await api.post('/api/users/signup', {  // ← changed
+    name, email, password, role, department,
   });
-  return data;   // { message, data: createdUser }
+  return data;
 };
 
-// ── POST /login ───────────────────────────────────────────────────────────────
-// Backend returns { message, token } — no user object
-// We then call /getuser to fetch the full user profile
 export const login = async (email, password) => {
-  const { data } = await api.post('/login', { email, password });
-
+  const { data } = await api.post('/api/users/login', { email, password });  // ← changed
   const token = data.token;
-
-  // Persist token to AsyncStorage immediately
   await AsyncStorage.setItem('token', token);
-
-  // Fetch full user profile using the token
-  const userResponse = await api.post('/getuser', { token });
-  const user = userResponse.data.data;  // { _id, name, email, role, department }
-
+  const userResponse = await api.post('/api/users/getuser', { token });  // ← changed
+  const user = userResponse.data.data;
   return { token, user };
 };
 
-// ── POST /getuser ─────────────────────────────────────────────────────────────
 export const getUser = async (token) => {
-  const { data } = await api.post('/getuser', { token });
-  return data.data;   // { _id, name, email, role, department }
+  const { data } = await api.post('/api/users/getuser', { token });  // ← changed
+  return data.data;
 };
 
 // ── Clear token on logout ─────────────────────────────────────────────────────
