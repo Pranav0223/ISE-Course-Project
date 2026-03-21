@@ -221,7 +221,7 @@ export default function ResultsScreen({ route, navigation }) {
 
         {/* ── Top States ── */}
         <SectionCard title="Top 5 States by Coverage" icon="📍">
-          {(breakdowns?.top_states || []).map(({ state, count, state_total }) => (
+          {(breakdowns?.all_states || []).map(({ state, count, state_total }) => (
             <BarRow
               key={state}
               label={state}
@@ -231,6 +231,18 @@ export default function ResultsScreen({ route, navigation }) {
             />
           ))}
         </SectionCard>
+
+        {/* ── View India Map Button ── */}
+        <TouchableOpacity
+          style={styles.mapButton}
+          onPress={() => navigation.navigate('IndiaMap', {
+            stateData:        breakdowns?.all_states || [],
+            total_population,
+          })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.mapButtonText}>🗺️  View India Map</Text>
+        </TouchableOpacity>
 
         {/* ── New Policy Button ── */}
         <TouchableOpacity
@@ -311,6 +323,16 @@ const styles = StyleSheet.create({
     fontSize: 14, fontWeight: '700', color: COLORS.textDark,
     marginBottom: 16,
   },
+
+  // Map button
+  mapButton: {
+    height: 54, backgroundColor: '#0F766E', borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#0F766E', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28, shadowRadius: 8, elevation: 5,
+    marginBottom: 12,
+  },
+  mapButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 
   // New policy button
   newPolicyButton: {
