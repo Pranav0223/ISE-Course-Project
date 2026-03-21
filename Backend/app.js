@@ -11,7 +11,6 @@ app.use('/api/users', userRoutes);
 const citizenRoutes = require("./src/routes/CitizenRoutes.js");
 app.use('/api/citizens', citizenRoutes);
 
-
 const parsePolicyRoutes = require('./src/routes/parsePolicyRoutes');
 app.use('/api/parse-policy', parsePolicyRoutes);
 
