@@ -94,21 +94,6 @@ The core objective is to estimate policy reach (coverage %) and identify who ben
 
 ---
 
-## Repository Structure
-
-- App
-  - Expo mobile app source
-  - Authentication UI
-  - Policy input + upload flow
-  - Rule confirmation and simulation result screens
-  - India map visualization
-- Backend
-  - Express server entrypoint
-  - Auth, parse-policy, simulation, and citizen routes/controllers
-  - MongoDB models and middleware
-
----
-
 ## 📂 Repository Structure
 
 - App
