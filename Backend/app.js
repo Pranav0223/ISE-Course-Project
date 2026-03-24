@@ -33,6 +33,6 @@ mongoose
     console.error("FULL ERROR:", err);
   });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`server is started on port number : ${PORT}`);
 });
