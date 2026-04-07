@@ -25,7 +25,7 @@ const userSchema = new Schema(
     },
     department: {
       type: String,
-      required: true,
+      required: false,
     },
   },
   { timestamps: true },

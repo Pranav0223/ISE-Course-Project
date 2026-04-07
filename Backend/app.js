@@ -2,6 +2,20 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
+const cors = require("cors");  // ← FIX 1: import cors
+
+// ← FIX 2: add CORS BEFORE all routes
+app.use(cors({
+  origin: [
+    'http://localhost:5173',   // Vite web frontend (dev)
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 
 app.use(express.json());
 
@@ -20,7 +34,7 @@ app.use('/api/simulate', simulationRoutes);
 
 const mongooseURI =
   process.env.MONGO_URI;
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 
 
