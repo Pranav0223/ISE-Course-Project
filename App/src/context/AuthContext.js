@@ -22,12 +22,17 @@ export function AuthProvider({ children }) {
       try {
         const token = await AsyncStorage.getItem('token');
         if (token) {
-          const userData = await getUser(token);
-          setUser(userData);
+          try {
+            const userData = await getUser(token);
+            setUser(userData);
+          } catch (err) {
+            console.error('Failed to fetch user:', err?.message);
+            // Token expired or invalid — clear it silently
+            await AsyncStorage.removeItem('token');
+          }
         }
-      } catch {
-        // Token expired or invalid — clear it silently
-        await AsyncStorage.removeItem('token');
+      } catch (err) {
+        console.error('AsyncStorage error:', err?.message);
       } finally {
         setLoading(false);
       }
