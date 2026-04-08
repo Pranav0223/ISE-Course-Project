@@ -51,7 +51,7 @@ export default function AppShell() {
           <div className="logo-mark">
             <div className="logo-icon">📋</div>
             <div>
-              <div className="logo-text">PolicySim</div>
+              <div className="logo-text">PIS</div>
               <div className="logo-sub">Impact Simulator</div>
             </div>
           </div>

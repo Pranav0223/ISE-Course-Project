@@ -3,61 +3,35 @@ import { useNavigate } from 'react-router-dom'
 import { policyApi } from '../services/api'
 
 const EXAMPLES = [
-  {
-    label: 'Rural income support',
-    text: 'Financial assistance for rural households with annual income below ₹1,00,000 and at least one elderly member above 60 years of age.',
-  },
-  {
-    label: 'Farmer land subsidy',
-    text: 'Agricultural subsidy for farmers in Maharashtra with land holdings under 2 hectares and annual income below ₹80,000.',
-  },
-  {
-    label: 'BPL housing scheme',
-    text: 'Housing support for Below Poverty Line (BPL) families in rural areas with no existing government housing allocation.',
-  },
+  { label: '🌾 Rural Farmer Support', text: 'Financial assistance for farmers in rural areas with annual income below ₹1,00,000 and land holding under 2 hectares.' },
+  { label: '👵 Senior Citizen Pension', text: 'Monthly pension for BPL citizens aged above 60 years who are widowed or disabled.' },
+  { label: '🎓 SC/ST Education Grant', text: 'Education scholarship for SC and ST students with family income below ₹2,50,000 per year who have completed at least secondary schooling.' },
+  { label: '🏥 Disability Support', text: 'Monthly allowance for disabled individuals with annual income below ₹50,000 who are unemployed or daily wage labourers.' },
 ]
+
+const OP_LABEL = { equals:'=', not_equals:'≠', greater_than:'>', less_than:'<', greater_than_or_equal:'≥', less_than_or_equal:'≤', in_list:'IN', not_in_list:'NOT IN', is_true:'= true', is_false:'= false' }
 
 export default function PolicyInputScreen() {
   const navigate = useNavigate()
-  const [mode, setMode] = useState('text') // 'text' | 'file'
+  const [mode, setMode] = useState('text')
   const [policyText, setPolicyText] = useState('')
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [parsed, setParsed] = useState(null)
   const [drag, setDrag] = useState(false)
   const fileRef = useRef()
 
-  function handleDrop(e) {
-    e.preventDefault()
-    setDrag(false)
-    const dropped = e.dataTransfer.files[0]
-    if (dropped) setFile(dropped)
-  }
-
   async function handleSubmit() {
-    if (mode === 'text' && !policyText.trim()) {
-      setError('Please enter a policy description.')
-      return
-    }
-    if (mode === 'file' && !file) {
-      setError('Please upload a PDF or DOCX file.')
-      return
-    }
-
-    setLoading(true)
-    setError('')
+    if (mode === 'text' && policyText.trim().length < 10) { setError('Please enter at least 10 characters.'); return }
+    if (mode === 'file' && !file) { setError('Please upload a PDF or DOCX file.'); return }
+    setLoading(true); setError(''); setParsed(null)
     try {
-      let result
-      if (mode === 'text') {
-        result = await policyApi.parseText(policyText)
-      } else {
-        result = await policyApi.parseFile(file)
-      }
-
-      // Store parsed rules in sessionStorage to pass to simulate screen
-      sessionStorage.setItem('parsedRules', JSON.stringify(result.rules || result))
-      sessionStorage.setItem('policyText', policyText || (file?.name ?? ''))
-      navigate('/simulate')
+      const result = mode === 'text' ? await policyApi.parseText(policyText) : await policyApi.parseFile(file)
+      setParsed(result)
+      sessionStorage.setItem('parsedRules', JSON.stringify(result.rules))
+      sessionStorage.setItem('policyText', policyText || file?.name || '')
+      sessionStorage.setItem('understoodAs', result.understood_as || '')
     } catch (err) {
       setError(err.message || 'Failed to parse policy. Please try again.')
     } finally {
@@ -65,140 +39,199 @@ export default function PolicyInputScreen() {
     }
   }
 
+  const allFields = ['age','gender','income_annual','state','rural_urban','social_category','occupation','marital_status','disability','education_level','bpl_status']
+
   return (
-    <div className="fade-in" style={{ maxWidth: 760 }}>
-      {/* Step wizard */}
-      <div className="step-wizard">
-        <div className="step-item active">
-          <div className="step-circle">1</div>
-          <span className="step-label">Policy Input</span>
-        </div>
-        <div className="step-connector" />
-        <div className="step-item">
-          <div className="step-circle">2</div>
-          <span className="step-label">Run Simulation</span>
-        </div>
-        <div className="step-connector" />
-        <div className="step-item">
-          <div className="step-circle">3</div>
-          <span className="step-label">View Results</span>
-        </div>
+    <div className="fade-in" style={{ maxWidth: 1050 }}>
+      <div className="page-header">
+        <h1>Policy Input</h1>
+        <p>Paste a government policy and extract structured eligibility rules using AI (LLaMA 3.3 via Groq)</p>
       </div>
 
-      {/* MAIN CARD */}
-      <div className="card" style={{ marginBottom:'1.5rem' }}>
-        <div className="card-header">
-          <div>
-            <div className="card-title">Enter Policy Description</div>
-            <div className="card-sub">The AI will extract structured eligibility rules from your input</div>
-          </div>
-          {/* Mode toggle */}
-          <div style={{ display:'flex', background:'var(--paper)', borderRadius:6, padding:3, gap:2 }}>
-            {['text', 'file'].map(m => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError('') }}
-                style={{
-                  background: mode === m ? 'var(--white)' : 'transparent',
-                  border: mode === m ? '1px solid var(--border)' : '1px solid transparent',
-                  borderRadius:4, padding:'0.3rem 0.8rem',
-                  fontSize:'0.78rem', fontWeight:600,
-                  color: mode === m ? 'var(--ink)' : 'var(--ink-3)',
-                  cursor:'pointer', boxShadow: mode === m ? 'var(--shadow-sm)' : 'none',
-                  fontFamily:'var(--font-sans)',
-                }}
-              >
-                {m === 'text' ? '✏ Text' : '📄 Upload'}
+      {/* Step Wizard */}
+      <div className="step-wizard">
+        {['Policy Input','Review Rules','Run Simulation','View Results'].map((s, i) => (
+          <React.Fragment key={s}>
+            <div className={`step-item${i === 0 ? ' active' : ''}`}>
+              <div className="step-circle">{i + 1}</div>
+              <span className="step-label">{s}</span>
+            </div>
+            {i < 3 && <div className="step-connector" />}
+          </React.Fragment>
+        ))}
+      </div>
+
+      <div className="policy-layout">
+        {/* LEFT — Input */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">Policy Description</div>
+                <div className="card-sub">AI will extract eligibility conditions from your input</div>
+              </div>
+              <div className="mode-toggle">
+                <button className={`mode-btn${mode === 'text' ? ' active' : ''}`} onClick={() => { setMode('text'); setError('') }}>✏ Text</button>
+                <button className={`mode-btn${mode === 'file' ? ' active' : ''}`} onClick={() => { setMode('file'); setError('') }}>📄 Upload</button>
+              </div>
+            </div>
+            <div className="card-body">
+              {error && <div className="alert alert-error"><span>⚠</span><span>{error}</span></div>}
+
+              {mode === 'text' ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Policy Text</label>
+                    <textarea
+                      className="form-input"
+                      style={{ minHeight: 160 }}
+                      placeholder="e.g. Financial assistance for rural households with annual income below ₹1,00,000 and at least one elderly member above 60 years of age who belong to SC or ST category..."
+                      value={policyText}
+                      onChange={e => { setPolicyText(e.target.value); setError(''); setParsed(null) }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="form-hint">{policyText.length} characters {policyText.length < 10 && policyText.length > 0 ? '(min 10)' : ''}</span>
+                      {policyText && <button onClick={() => { setPolicyText(''); setParsed(null) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--ink-3)' }}>Clear</button>}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div
+                  className={`upload-zone${drag ? ' drag' : ''}`}
+                  style={{ marginBottom: '1rem' }}
+                  onDragOver={e => { e.preventDefault(); setDrag(true) }}
+                  onDragLeave={() => setDrag(false)}
+                  onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) { setFile(f); setError('') } }}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <input ref={fileRef} type="file" accept=".pdf,.docx,.doc" style={{ display: 'none' }} onChange={e => { setFile(e.target.files[0]); setError('') }} />
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{file ? '📎' : '📤'}</div>
+                  {file ? (
+                    <>
+                      <div style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '0.88rem' }}>{file.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--ink-3)', marginTop: '0.2rem' }}>{(file.size/1024).toFixed(1)} KB · click to change</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontWeight: 500, fontSize: '0.88rem', color: 'var(--ink-2)' }}>Drop your PDF or DOCX here</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--ink-3)', marginTop: '0.2rem' }}>or click to browse · max 10 MB</div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <button className={`btn btn-primary btn-full btn-lg${loading ? ' btn-loading' : ''}`} onClick={handleSubmit} disabled={loading}>
+                {loading ? '' : '⚡ Extract Rules with AI'}
               </button>
-            ))}
+            </div>
+          </div>
+
+          {/* Examples */}
+          <div className="card">
+            <div className="card-header"><div className="card-title">💡 Try an example policy</div></div>
+            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {EXAMPLES.map(ex => (
+                <button key={ex.label} className="example-btn" onClick={() => { setMode('text'); setPolicyText(ex.text); setParsed(null); setError('') }}>
+                  <div className="example-btn-label">{ex.label}</div>
+                  <div className="example-btn-text">{ex.text}</div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="card-body">
-          {error && <div className="alert alert-error"><span>⚠</span>{error}</div>}
-
-          {mode === 'text' ? (
-            <>
-              <div className="form-group">
-                <label className="form-label">Policy Text</label>
-                <textarea
-                  className="form-input"
-                  style={{ minHeight: 160, fontFamily: 'var(--font-sans)' }}
-                  placeholder="Paste the full government policy description here. The AI will identify eligibility conditions such as income thresholds, location, age, occupation, and more."
-                  value={policyText}
-                  onChange={e => { setPolicyText(e.target.value); if(error) setError('') }}
-                />
-                <div className="form-hint">
-                  Supports any plain-language policy description. The more specific, the better the rule extraction.
-                </div>
-              </div>
-
-              {/* Quick examples */}
-              <div style={{ marginBottom:'1.5rem' }}>
-                <div style={{ fontSize:'0.72rem', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:'var(--ink-4)', marginBottom:'0.5rem' }}>
-                  Try an example
-                </div>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:'0.5rem' }}>
-                  {EXAMPLES.map(ex => (
-                    <button
-                      key={ex.label}
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => { setPolicyText(ex.text); if(error) setError('') }}
-                    >
-                      {ex.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div style={{ marginBottom:'1.5rem' }}>
-              <div
-                className={`upload-zone${drag ? ' drag' : ''}`}
-                onDragOver={e => { e.preventDefault(); setDrag(true) }}
-                onDragLeave={() => setDrag(false)}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current?.click()}
-              >
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".pdf,.docx,.doc"
-                  style={{ display:'none' }}
-                  onChange={e => { setFile(e.target.files[0]); if(error) setError('') }}
-                />
-                <div className="upload-icon">📤</div>
-                {file ? (
-                  <>
-                    <div className="upload-text" style={{ color:'var(--accent)' }}>📎 {file.name}</div>
-                    <div className="upload-sub">{(file.size / 1024).toFixed(1)} KB — click to change</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="upload-text">Drop your PDF or DOCX here</div>
-                    <div className="upload-sub">or click to browse — max 10 MB</div>
-                  </>
-                )}
+        {/* RIGHT — Results */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {!parsed && !loading && (
+            <div className="card">
+              <div className="empty-state">
+                <div className="empty-state-icon">🧠</div>
+                <h3>Waiting for policy input</h3>
+                <p>Enter a policy description on the left and click "Extract Rules" to see structured eligibility criteria here.</p>
               </div>
             </div>
           )}
 
-          <button
-            className={`btn btn-primary btn-lg btn-full${loading ? ' btn-loading' : ''}`}
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? '' : '⚡ Extract Rules with AI'}
-          </button>
-        </div>
-      </div>
+          {loading && (
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Analysing with AI...</div>
+                  <div className="card-sub">LLaMA 3.3 via Groq API</div>
+                </div>
+              </div>
+              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {[140, 120, 100].map((w, i) => (
+                  <div key={i} className="skeleton" style={{ height: 40, width: '100%' }} />
+                ))}
+              </div>
+            </div>
+          )}
 
-      {/* INFO BOX */}
-      <div className="alert alert-info" style={{ alignItems:'flex-start' }}>
-        <span style={{ fontSize:'1rem' }}>💡</span>
-        <div>
-          <strong>How it works:</strong> Your policy text is sent to the Groq API (LLaMA 3.3 70B) which extracts
-          eligibility criteria in structured JSON — fields like <code style={{ fontFamily:'var(--font-mono)', fontSize:'0.8rem', background:'rgba(0,82,204,0.1)', padding:'0 4px', borderRadius:3 }}>income_annual</code>, <code style={{ fontFamily:'var(--font-mono)', fontSize:'0.8rem', background:'rgba(0,82,204,0.1)', padding:'0 4px', borderRadius:3 }}>rural_urban</code>, <code style={{ fontFamily:'var(--font-mono)', fontSize:'0.8rem', background:'rgba(0,82,204,0.1)', padding:'0 4px', borderRadius:3 }}>age</code> — that map to citizen dataset attributes.
+          {parsed && (
+            <>
+              {/* Understood As */}
+              <div className="understood-box">
+                <div className="understood-label">Policy understood as</div>
+                <div className="understood-text">{parsed.understood_as}</div>
+              </div>
+
+              {/* Rules */}
+              <div className="card">
+                <div className="card-header">
+                  <div>
+                    <div className="card-title">Extracted Eligibility Rules</div>
+                    <div className="card-sub">Combined with AND logic</div>
+                  </div>
+                  <span className="badge badge-blue">{parsed.rules?.length} rules</span>
+                </div>
+                <div className="card-body">
+                  <div className="rule-list">
+                    {parsed.rules?.map((rule, i) => (
+                      <React.Fragment key={i}>
+                        {i > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.2rem 0' }}>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                            <span className="rule-connector">AND</span>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                          </div>
+                        )}
+                        <div className="rule-item">
+                          <span className="rule-number">#{i+1}</span>
+                          <span className="rule-field">{rule.field}</span>
+                          <span className="rule-op">{OP_LABEL[rule.operator] || rule.operator}</span>
+                          <span className="rule-val">{Array.isArray(rule.value) ? rule.value.join(', ') : String(rule.value)}</span>
+                        </div>
+                        {rule.label && <div style={{ fontSize: '0.75rem', color: 'var(--ink-3)', marginLeft: '0.5rem' }}>{rule.label}</div>}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Fields matched */}
+              <div className="card">
+                <div className="card-header"><div className="card-title">Dataset Fields Used</div></div>
+                <div className="card-body">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {allFields.map(f => {
+                      const used = parsed.rules?.some(r => r.field === f)
+                      return (
+                        <span key={f} style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: 4, border: '1px solid', fontWeight: used ? 600 : 400, background: used ? 'var(--success-bg)' : 'var(--paper)', color: used ? 'var(--success)' : 'var(--ink-4)', borderColor: used ? 'rgba(10,124,78,0.25)' : 'var(--border)' }}>
+                          {used ? '✓ ' : ''}{f}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <button className="btn btn-success btn-full btn-lg" onClick={() => navigate('/simulate')}>
+                ▶ Run Simulation on {parsed.rules?.length} Rules →
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

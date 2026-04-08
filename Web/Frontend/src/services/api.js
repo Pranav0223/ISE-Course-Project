@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────
-//  API SERVICE  –  connects to your Node.js + Express backend
-//  Local dev: http://localhost:5000 (set in .env as VITE_API_URL)
-// ─────────────────────────────────────────────────────────
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 function getToken() {
   return localStorage.getItem('token')
@@ -20,12 +15,8 @@ async function request(path, options = {}) {
   let res
   try {
     res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
-  } catch (networkErr) {
-    throw new Error(
-      `Cannot reach backend at ${BASE_URL}. ` +
-      `Make sure your Backend server is running (node app.js) and CORS is added. ` +
-      `(${networkErr.message})`
-    )
+  } catch (err) {
+    throw new Error(`Cannot reach backend at ${BASE_URL}. Make sure your server is running. (${err.message})`)
   }
 
   if (res.status === 401) {
@@ -36,32 +27,15 @@ async function request(path, options = {}) {
   }
 
   let data
-  try {
-    data = await res.json()
-  } catch {
-    throw new Error(`Server returned non-JSON response (status ${res.status})`)
-  }
-
-  if (!res.ok) {
-    throw new Error(data.message || data.error || `Request failed (${res.status})`)
-  }
-
+  try { data = await res.json() } catch { throw new Error(`Non-JSON response (${res.status})`) }
+  if (!res.ok) throw new Error(data.message || data.error || `Request failed (${res.status})`)
   return data
 }
 
-// ── AUTH ────────────────────────────────────────────────
-// Your backend signup returns: { message, data: userObject }
-// Your backend login returns:  { message, token }
-// We normalise both into { token, user } for the frontend.
-
+// ── AUTH ──────────────────────────────────────────────────────────────────────
 export const authApi = {
-  // POST /api/users/signup  →  { message, data: {...user} }
   register: async (payload) => {
-    const res = await request('/api/users/signup', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-    // After signup, auto-login to get a token
+    const res = await request('/api/users/signup', { method: 'POST', body: JSON.stringify(payload) })
     const loginRes = await request('/api/users/login', {
       method: 'POST',
       body: JSON.stringify({ email: payload.email, password: payload.password }),
@@ -72,66 +46,57 @@ export const authApi = {
     }
   },
 
-  // POST /api/users/login  →  { message, token }
   login: async (payload) => {
-    const res = await request('/api/users/login', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-    // Backend only returns token; build a minimal user object from the payload
-    // so the sidebar can show the name after login
+    const res = await request('/api/users/login', { method: 'POST', body: JSON.stringify(payload) })
     const user = { email: payload.email, name: payload.email.split('@')[0] }
     return { token: res.token, user }
   },
 }
 
-// ── POLICY PARSING ──────────────────────────────────────
+// ── POLICY PARSING ────────────────────────────────────────────────────────────
+// Backend expects: { policy_text }
+// Backend returns: { understood_as, rules: [{field, operator, value, label}] }
 export const policyApi = {
-  // POST /api/parse-policy  →  { rules: [{field, operator, value}] }
-  parseText: (policyText) =>
+  parseText: (policy_text) =>
     request('/api/parse-policy', {
       method: 'POST',
-      body: JSON.stringify({ policyText }),
+      body: JSON.stringify({ policy_text }),
     }),
 
-  // POST /api/parse-policy  (multipart with file) →  { rules }
   parseFile: async (file) => {
     const token = getToken()
     const form = new FormData()
-    form.append('file', file)
+    form.append('document', file)
     let res
     try {
-      res = await fetch(`${BASE_URL}/api/parse-policy`, {
+      res = await fetch(`${BASE_URL}/api/parse-policy/document`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
       })
-    } catch (networkErr) {
-      throw new Error(`Cannot reach backend at ${BASE_URL}. Make sure your server is running.`)
+    } catch (err) {
+      throw new Error(`Cannot reach backend. (${err.message})`)
     }
-    if (res.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
-      return
-    }
+    if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login'; return }
     const data = await res.json()
     if (!res.ok) throw new Error(data.message || 'File parse failed')
     return data
   },
 }
 
-// ── SIMULATION ──────────────────────────────────────────
+// ── SIMULATION ────────────────────────────────────────────────────────────────
+// Backend expects: { policy_text, rules }
+// Backend returns: { total_population, eligible_count, excluded_count, coverage_percent, breakdowns }
 export const simulationApi = {
-  run: (rules) =>
+  run: (policy_text, rules) =>
     request('/api/simulate', {
       method: 'POST',
-      body: JSON.stringify({ rules }),
+      body: JSON.stringify({ policy_text, rules }),
     }),
 }
 
-// ── CITIZENS ────────────────────────────────────────────
+// ── CITIZENS ──────────────────────────────────────────────────────────────────
 export const citizenApi = {
-  getAll: () => request('/api/citizens'),
-  getById: (id) => request(`/api/citizens/${id}`),
-  getLimited: (limit = 20) => request(`/api/citizens?limit=${limit}`),
+  getAll: () => request('/api/citizens/citizen'),
+  getLimited: (limit = 50) => request(`/api/citizens/limitedCitizens?limit=${limit}`),
 }

@@ -16,29 +16,27 @@ export default function RegisterScreen() {
   }
 
   async function handleSubmit(e) {
-  e.preventDefault()
-  if (!form.name || !form.email || !form.password) {
-    setError('Name, email and password are required.')
-    return
+    e.preventDefault()
+    if (!form.name || !form.email || !form.password) {
+      setError('Name, email and password are required.')
+      return
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const data = await authApi.register(form)
+      login(data.token, data.user)
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
-  if (form.password.length < 6) {
-    setError('Password must be at least 6 characters.')
-    return
-  }
-  setLoading(true)
-  setError('')
-  try {
-    const payload = { ...form }
-    if (!payload.department) payload.department = 'General'  // ← add this
-    const data = await authApi.register(payload)
-    login(data.token, data.user)
-    navigate('/dashboard')
-  } catch (err) {
-    setError(err.message || 'Registration failed. Please try again.')
-  } finally {
-    setLoading(false)
-  }
-}
 
   return (
     <div className="auth-shell">
